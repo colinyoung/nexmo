@@ -1,11 +1,17 @@
 require 'minitest/autorun'
 require 'mocha'
 
+if ARGV.length < 2
+  raise "You must call nexmo_spec.rb from the command line with two arguments: the key, then the secret.
+        Optionally, you can issue a 3rd argument (a phone number) to be actually texted w/ the send_message test.
+        NOTE! You may need a 4th argument, one of your from numbers, if your 'To:' number is in certain regions."
+end
+
 require_relative '../lib/nexmo'
 
 describe Nexmo::Client do
-  before do
-    @client = Nexmo::Client.new('key', 'secret')
+  before do    
+    @client = Nexmo::Client.new(ARGV.first, ARGV[1])
   end
 
   describe 'http method' do
@@ -26,32 +32,36 @@ describe Nexmo::Client do
       @headers = {'Content-Type' => 'application/x-www-form-urlencoded'}
     end
 
-    it 'should make the correct http call return a successful response if the first message status equals 0' do
-      http_response = stub(:body => '{"messages":[{"status":0,"message-id":"id"}]}')
+    it 'should text the number successfully if a number is given' do
+      if ARGV.length < 3
+        puts "[WARNING] send_message not tested, the number wasn't given."
+        return true
+      end
+      
+      data = {
+        from: ARGV[3],
+        to: ARGV[2],
+        text: "Test from minitest on #{DateTime.now.to_time}",
+        username: @client.key,
+        password: @client.secret
+      }
 
-      data = 'from=ruby&to=number&text=Hey%21&username=key&password=secret'
-
-      @client.http.expects(:post).with('/sms/json', data, @headers).returns(http_response)
-
-      response = @client.send_message({from: 'ruby', to: 'number', text: 'Hey!'})
+      response = @client.send_message(data)
 
       response.success?.must_equal(true)
       response.failure?.must_equal(false)
-      response.message_id.must_equal('id')
     end
-
-    it 'should return a failure response if the first message status does not equal 0' do
-      http_response = stub(:body => '{"messages":[{"status":2,"error-text":"Missing from param"}]}')
-
-      data = 'to=number&text=Hey%21&username=key&password=secret'
-
-      @client.http.expects(:post).with('/sms/json', data, @headers).returns(http_response)
-
-      response = @client.send_message({to: 'number', text: 'Hey!'})
-
-      response.success?.must_equal(false)
-      response.failure?.must_equal(true)
-      response.error.to_s.must_equal('Missing from param (status=2)')
+  end
+  
+  describe 'account_balance method' do
+    it 'should return the balance value in euro' do
+      response = @client.account_balance
+      
+      response.failure?.must_equal(false)
+      
+      (response.value.is_a? ::Float).must_equal(true)
+      
+      response.success?.must_equal(true)
     end
   end
 end
