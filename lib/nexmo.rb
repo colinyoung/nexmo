@@ -29,9 +29,9 @@ module Nexmo
       status = object['status'].to_i
 
       if status == 0
-        Success.new(message_id: object['message-id'])
+        Response.new(message_id: object['message-id'])
       else
-        Failure.new(Error.new("#{object['error-text']} (status=#{status})"))
+        Response.new(Error.new("#{object['error-text']} (status=#{status})"))
       end
     end
     
@@ -46,9 +46,9 @@ module Nexmo
       balance = JSON.parse(response.body)
       
       if balance
-        Success.new(value: balance['value'])
+        Response.new(value: balance['value'])
       else
-        Failure.new(Error.new("Unexpected error."))
+        Response.new(Error.new("Unexpected error."))
       end
     end
 
@@ -63,8 +63,8 @@ module Nexmo
     end
   end
 
-  class Success
-    def initialize(hash)
+  class Status
+    def initialize(hashOrError)
       @data = hash
     end
     
@@ -73,24 +73,14 @@ module Nexmo
     end
     
     def success?
-      true
+      !@data.is_a? Error
     end
 
     def failure?
-      false
+      @data.is_a? Error
     end
   end
-
-  class Failure < Struct.new(:error)
-    def success?
-      false
-    end
-
-    def failure?
-      true
-    end
-  end
-
+  
   class Error < StandardError
   end
 end
